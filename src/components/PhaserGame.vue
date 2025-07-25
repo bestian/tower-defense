@@ -1,6 +1,7 @@
 <template>
   <div ref="gameContainer" class="phaser-container"></div>
   <div class="ui-overlay">
+    <div class="hp">玩家血量: {{ playerHp }}</div>
     <div class="money">金錢: ${{ money }}</div>
     <div class="wave">波數: {{ waveNumber }}</div>
     <div class="tower-menu">
@@ -14,6 +15,11 @@
         飛行塔 (${{ towerCosts.flying }})
       </button>
     </div>
+    <div class="game-controls">
+      <button @click="togglePause">{{ isPaused ? '繼續' : '暫停' }}</button>
+      <button @click="restartGame">重新開始</button>
+    </div>
+    <div v-if="isGameOver" class="game-over">GAME OVER</div>
   </div>
 </template>
 
@@ -28,6 +34,33 @@ let game: Phaser.Game | null = null
 const money = ref(1000)
 const waveNumber = ref(1)
 const selectedTower = ref<string | null>(null)
+const playerHp = ref(100)
+const isGameOver = ref(false)
+const isPaused = ref(false)
+
+function restartGame() {
+  isGameOver.value = false
+  isPaused.value = false
+  playerHp.value = 100
+  money.value = 1000
+  waveNumber.value = 1
+  selectedTower.value = null
+  // 重新啟動 Phaser 場景
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scene = game?.scene.getScene('GameScene') as any
+  scene?.scene.restart()
+}
+
+function togglePause() {
+  isPaused.value = !isPaused.value
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scene = game?.scene.getScene('GameScene') as any
+  if (isPaused.value) {
+    scene?.scene.pause()
+  } else {
+    scene?.scene.resume()
+  }
+}
 
 const towerCosts = {
   melee: 100,
@@ -56,19 +89,19 @@ class Tower extends Phaser.GameObjects.Graphics {
     switch (towerType) {
       case 'melee':
         this.range = 80
-        this.damage = 50
+        this.damage = 60
         this.attackSpeed = 1000 // 1秒攻擊一次
         this.drawMeleeTower()
         break
       case 'ranged':
         this.range = 150
-        this.damage = 30
+        this.damage = 20
         this.attackSpeed = 800 // 0.8秒攻擊一次
         this.drawRangedTower()
         break
       case 'flying':
         this.range = 100
-        this.damage = 10
+        this.damage = 5
         this.attackSpeed = 1200 // 1.2秒攻擊一次
         this.drawFlyingTower()
         break
@@ -201,8 +234,8 @@ class Tower extends Phaser.GameObjects.Graphics {
   }
 
     private rangedAttack(target: Enemy) {
-    // 遠程攻擊：發射投射物
-    new Projectile(this.scene, this.x, this.y, target, this.damage)
+    // 遠程攻擊：直接造成傷害
+    target.takeDamage(this.damage)
 
     // 顯示攻擊效果
     this.showAttackEffect(target, 0x9900ff)
@@ -246,46 +279,6 @@ class Tower extends Phaser.GameObjects.Graphics {
   }
 }
 
-// 投射物類別（用於遠程塔）
-class Projectile extends Phaser.GameObjects.Graphics {
-  private target: Enemy
-  private damage: number
-  private speed: number = 5
-
-  constructor(scene: Phaser.Scene, x: number, y: number, target: Enemy, damage: number) {
-    super(scene)
-
-    this.target = target
-    this.damage = damage
-
-    // 畫投射物（黃色小圓）
-    this.fillStyle(0xffff00)
-    this.fillCircle(0, 0, 5)
-
-    this.setPosition(x, y)
-    scene.add.existing(this)
-  }
-
-  update() {
-    if (!this.target.active) {
-      this.destroy()
-      return
-    }
-
-    // 移動向目標
-    const angle = Phaser.Math.Angle.Between(this.x, this.y, this.target.x, this.target.y)
-    this.x += Math.cos(angle) * this.speed
-    this.y += Math.sin(angle) * this.speed
-
-    // 檢查是否擊中目標
-    const distance = Phaser.Math.Distance.Between(this.x, this.y, this.target.x, this.target.y)
-    if (distance < 20) {
-      this.target.takeDamage(this.damage)
-      this.destroy()
-    }
-  }
-}
-
 // 怪物類別
 class Enemy extends Phaser.GameObjects.Graphics {
   private path: Phaser.Curves.Path
@@ -326,6 +319,8 @@ class Enemy extends Phaser.GameObjects.Graphics {
 
     // 當怪物到達路徑終點時
     if (this.pathProgress >= 1) {
+      // 到終點時扣玩家血量
+      window.dispatchEvent(new CustomEvent('enemyReachedEnd', { detail: this.health }))
       this.destroy()
       if (this.healthBar) this.healthBar.destroy()
       return
@@ -353,15 +348,20 @@ class Enemy extends Phaser.GameObjects.Graphics {
   updateHealthBar() {
     if (!this.healthBar) return
     this.healthBar.clear()
+    // 動態血條高度
+    const baseBarHeight = 6
+    const extraBarHeight = Math.min(12, Math.floor((this.maxHealth - 100) / 100) * 2)
+    const barHeight = baseBarHeight + extraBarHeight // 6~18px
+    const yOffset = 28 + barHeight // 讓血條不會蓋到怪物
     // 血條底色
     this.healthBar.fillStyle(0x333333)
-    this.healthBar.fillRect(this.x - 18, this.y - 28, 36, 6)
+    this.healthBar.fillRect(this.x - 18, this.y - yOffset, 36, barHeight)
     // 血量比例
     const percent = Math.max(0, this.health / this.maxHealth)
     this.healthBar.fillStyle(0x00ff00)
-    this.healthBar.fillRect(this.x - 18, this.y - 28, 36 * percent, 6)
+    this.healthBar.fillRect(this.x - 18, this.y - yOffset, 36 * percent, barHeight)
     this.healthBar.lineStyle(1, 0xffffff)
-    this.healthBar.strokeRect(this.x - 18, this.y - 28, 36, 6)
+    this.healthBar.strokeRect(this.x - 18, this.y - yOffset, 36, barHeight)
   }
 
   getHealthPercent(): number {
@@ -374,13 +374,13 @@ class GameScene extends Phaser.Scene {
   private path!: Phaser.Curves.Path
   private enemies: Enemy[] = []
   private towers: Tower[] = []
-  private projectiles: Projectile[] = []
   private enemySpawnTimer: number = 0
   private waveNumber: number = 1
   private enemiesInWave: number = 20
   private enemiesSpawned: number = 0
   private money: number = 1000
   private selectedTowerType: string | null = null
+  private gameOver: boolean = false
 
   constructor() {
     super({ key: 'GameScene' })
@@ -419,6 +419,12 @@ class GameScene extends Phaser.Scene {
         this.buildTower(pointer.x, pointer.y, this.selectedTowerType)
       }
     })
+
+    window.addEventListener('enemyReachedEnd', ((event: CustomEvent) => {
+      if (this.gameOver) return
+      const hp = event.detail
+      window.dispatchEvent(new CustomEvent('playerLoseHp', { detail: hp }))
+    }) as EventListener)
   }
 
   private createResponsiveSPath() {
@@ -510,6 +516,7 @@ class GameScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
+    if (this.gameOver) return
     // 更新所有怪物
     this.enemies.forEach((enemy, index) => {
       enemy.update(time, delta)
@@ -530,16 +537,6 @@ class GameScene extends Phaser.Scene {
       }
     })
 
-    // 更新投射物
-    this.projectiles.forEach((projectile, index) => {
-      projectile.update()
-
-      // 移除已銷毀的投射物
-      if (!projectile.active) {
-        this.projectiles.splice(index, 1)
-      }
-    })
-
     // 檢查是否完成當前波數
     if (this.enemiesSpawned >= this.enemiesInWave && this.enemies.length === 0) {
       this.nextWave()
@@ -554,6 +551,10 @@ class GameScene extends Phaser.Scene {
 
     // 開始下一波
     this.spawnEnemies()
+  }
+
+  public setGameOver() {
+    this.gameOver = true
   }
 }
 
@@ -585,6 +586,17 @@ onMounted(() => {
 
     window.addEventListener('updateWave', ((event: CustomEvent) => {
       waveNumber.value = event.detail
+    }) as EventListener)
+
+    window.addEventListener('playerLoseHp', ((event: CustomEvent) => {
+      playerHp.value -= event.detail
+      if (playerHp.value <= 0 && !isGameOver.value) {
+        isGameOver.value = true
+        // 通知 Phaser 場景停止
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scene = game?.scene.getScene('GameScene') as any
+        scene?.setGameOver()
+      }
     }) as EventListener)
   }
 })
@@ -650,5 +662,39 @@ onBeforeUnmount(() => {
 .tower-menu button.selected {
   border-color: #00ff00;
   background: rgba(0, 255, 0, 0.2);
+}
+
+.hp {
+  margin-bottom: 10px;
+  background: rgba(255, 0, 0, 0.7);
+  padding: 10px;
+  border-radius: 5px;
+  font-weight: bold;
+}
+.game-over {
+  margin-top: 30px;
+  font-size: 2.5rem;
+  color: #ff3333;
+  font-weight: bold;
+  text-shadow: 2px 2px 8px #000;
+}
+.game-controls {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+.game-controls button {
+  background: #222;
+  color: #fff;
+  border: 2px solid #666;
+  padding: 8px 18px;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.game-controls button:hover {
+  background: #444;
+  border-color: #00ffcc;
 }
 </style>
