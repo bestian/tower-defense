@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="flyingGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6600;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cc5200;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 底座 -->
+  <rect x="30" y="70" width="40" height="10" fill="#333" stroke="#fff" stroke-width="1"/>
+  <!-- 主體三角形 -->
+  <polygon points="50,30 40,60 60,60" fill="url(#flyingGradient)" stroke="#fff" stroke-width="1"/>
+  <!-- 翅膀 -->
+  <polygon points="25,45 40,50 35,55" fill="#ffaa00" stroke="#fff" stroke-width="0.5"/>
+  <polygon points="75,45 60,50 65,55" fill="#ffaa00" stroke="#fff" stroke-width="0.5"/>
+  <!-- 眼睛 -->
+  <circle cx="47" cy="42" r="1" fill="#fff"/>
+  <circle cx="53" cy="42" r="1" fill="#fff"/>
+</svg> 
