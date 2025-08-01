@@ -62,16 +62,23 @@ const isPaused = ref(false)
 const isDrawerExpanded = ref(false)
 
 function restartGame() {
+  // 重置 UI 狀態
   isGameOver.value = false
   isPaused.value = false
   playerHp.value = 100
   money.value = 1000
   waveNumber.value = 1
   selectedTower.value = null
+
   // 重新啟動 Phaser 場景
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scene = game?.scene.getScene('GameScene') as any
-  scene?.scene.restart()
+  if (scene) {
+    // 先停止當前場景
+    scene.scene.stop()
+    // 重新啟動場景
+    scene.scene.start('GameScene')
+  }
 }
 
 function toggleDrawer() {
@@ -598,7 +605,18 @@ class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' })
   }
 
-    create() {
+      create() {
+    // 重置場景狀態
+    this.enemies = []
+    this.towers = []
+    this.enemySpawnTimer = 0
+    this.waveNumber = 1
+    this.enemiesInWave = 20
+    this.enemiesSpawned = 0
+    this.money = 1000
+    this.selectedTowerType = null
+    this.gameOver = false
+
     // 加載圖片
     this.loadImages()
 
@@ -641,7 +659,14 @@ class GameScene extends Phaser.Scene {
     }) as EventListener)
   }
 
-    private loadImages() {
+      private loadImages() {
+    // 檢查圖片是否已經加載
+    if (this.textures.exists('melee-tower')) {
+      // 圖片已存在，直接開始遊戲
+      this.spawnEnemies()
+      return
+    }
+
     // 加載塔的 SVG 圖片（使用絕對路徑）
     this.load.image('melee-tower', 'https://bestian.github.io/tower-defense/melee-tower.svg')
     this.load.image('ranged-tower', 'https://bestian.github.io/tower-defense/ranged-tower.svg')
@@ -702,7 +727,9 @@ class GameScene extends Phaser.Scene {
     graphics.fillCircle(end.x, end.y, 10)
   }
 
-  private spawnEnemies() {
+    private spawnEnemies() {
+    if (this.gameOver) return
+
     if (this.enemiesSpawned < this.enemiesInWave) {
       // 計算怪物血量（隨波數增加）
       const baseHealth = 100
@@ -736,19 +763,21 @@ class GameScene extends Phaser.Scene {
   }
 
   private buildTower(x: number, y: number, type: string) {
+    if (this.gameOver) return
+
     const costs = { melee: 100, ranged: 150, flying: 200 }
     const cost = costs[type as keyof typeof costs]
 
-          if (this.money >= cost) {
-        // 檢查是否在路徑上（簡單檢查）
-        const distanceToPath = this.getDistanceToPath(x, y)
-        if (distanceToPath > 30) { // 距離路徑至少 30 像素
-          const tower = new Tower(this, x, y, type)
-          this.towers.push(tower)
-          this.money -= cost
-          window.dispatchEvent(new CustomEvent('updateMoney', { detail: this.money }))
-        }
+    if (this.money >= cost) {
+      // 檢查是否在路徑上（簡單檢查）
+      const distanceToPath = this.getDistanceToPath(x, y)
+      if (distanceToPath > 30) { // 距離路徑至少 30 像素
+        const tower = new Tower(this, x, y, type)
+        this.towers.push(tower)
+        this.money -= cost
+        window.dispatchEvent(new CustomEvent('updateMoney', { detail: this.money }))
       }
+    }
   }
 
   private getDistanceToPath(x: number, y: number): number {
