@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="rangedGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9900ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6600cc;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 底座 -->
+  <rect x="30" y="70" width="40" height="10" fill="#333" stroke="#fff" stroke-width="1"/>
+  <!-- 主體圓形 -->
+  <circle cx="50" cy="55" r="15" fill="url(#rangedGradient)" stroke="#fff" stroke-width="1"/>
+  <!-- 頂部尖塔 -->
+  <polygon points="50,35 45,50 55,50" fill="#fff" stroke="#9900ff" stroke-width="1"/>
+  <!-- 魔法符文 -->
+  <path d="M 47 55 L 53 55 M 50 52 L 50 58" stroke="#fff" stroke-width="0.5"/>
+</svg> 

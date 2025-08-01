@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="fastGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff4500;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cc3700;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- 主體 -->
+  <circle cx="50" cy="50" r="15" fill="url(#fastGradient)" stroke="#fff" stroke-width="1"/>
+  <!-- 眼睛 -->
+  <circle cx="47" cy="47" r="2" fill="#fff"/>
+  <circle cx="53" cy="47" r="2" fill="#fff"/>
+  <!-- 速度線條 -->
+  <path d="M 30 50 L 45 50" stroke="#ffaa00" stroke-width="1" opacity="0.7"/>
+  <path d="M 55 50 L 70 50" stroke="#ffaa00" stroke-width="1" opacity="0.7"/>
+  <!-- 尖耳朵 -->
+  <polygon points="47,40 42,30 52,40" fill="#ffaa00"/>
+  <polygon points="53,40 58,30 48,40" fill="#ffaa00"/>
+</svg> 

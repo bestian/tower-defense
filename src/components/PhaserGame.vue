@@ -69,7 +69,7 @@ const towerCosts = {
 }
 
 // 塔的基礎類別
-class Tower extends Phaser.GameObjects.Graphics {
+class Tower extends Phaser.GameObjects.Sprite {
   protected range: number = 0
   protected damage: number = 0
   protected attackSpeed: number = 0
@@ -84,8 +84,8 @@ class Tower extends Phaser.GameObjects.Graphics {
   private healthBar: Phaser.GameObjects.Graphics | null = null
   private isDestroyed: boolean = false
 
-  constructor(scene: Phaser.Scene, x: number, y: number, towerType: string) {
-    super(scene)
+    constructor(scene: Phaser.Scene, x: number, y: number, towerType: string) {
+    super(scene, x, y, `${towerType}-tower`)
 
     this.towerType = towerType
     this.enemies = []
@@ -98,7 +98,6 @@ class Tower extends Phaser.GameObjects.Graphics {
         this.attackSpeed = 1000 // 1秒攻擊一次
         this.maxHealth = 120
         this.health = 120
-        this.drawMeleeTower()
         break
       case 'ranged':
         this.range = 150
@@ -106,7 +105,6 @@ class Tower extends Phaser.GameObjects.Graphics {
         this.attackSpeed = 800 // 0.8秒攻擊一次
         this.maxHealth = 80
         this.health = 80
-        this.drawRangedTower()
         break
       case 'flying':
         this.range = 100
@@ -114,12 +112,13 @@ class Tower extends Phaser.GameObjects.Graphics {
         this.attackSpeed = 1200 // 1.2秒攻擊一次
         this.maxHealth = 150
         this.health = 150
-        this.drawFlyingTower()
         break
     }
 
-    this.setPosition(x, y)
+    // 設定精靈大小
+    this.setScale(0.8)
     scene.add.existing(this)
+
     // 顯示射程圈（近程與遠程塔）
     if (towerType === 'melee' || towerType === 'ranged') {
       this.rangeCircle = scene.add.graphics()
@@ -129,30 +128,6 @@ class Tower extends Phaser.GameObjects.Graphics {
     // 初始化血條
     this.healthBar = scene.add.graphics()
     this.updateHealthBar()
-  }
-
-  private drawMeleeTower() {
-    // 近程塔：藍色方形
-    this.fillStyle(0x0066ff)
-    this.fillRect(-20, -20, 40, 40)
-    this.lineStyle(2, 0xffffff)
-    this.strokeRect(-20, -20, 40, 40)
-  }
-
-  private drawRangedTower() {
-    // 遠程塔：紫色圓形
-    this.fillStyle(0x9900ff)
-    this.fillCircle(0, 0, 25)
-    this.lineStyle(2, 0xffffff)
-    this.strokeCircle(0, 0, 25)
-  }
-
-  private drawFlyingTower() {
-    // 飛行塔：橙色三角形
-    this.fillStyle(0xff6600)
-    this.fillTriangle(-20, 20, 20, 20, 0, -20)
-    this.lineStyle(2, 0xffffff)
-    this.strokeTriangle(-20, 20, 20, 20, 0, -20)
   }
 
   private drawRangeCircle() {
@@ -365,7 +340,7 @@ class Tower extends Phaser.GameObjects.Graphics {
 }
 
 // 怪物類別
-class Enemy extends Phaser.GameObjects.Graphics {
+class Enemy extends Phaser.GameObjects.Sprite {
   private path: Phaser.Curves.Path
   private pathProgress: number = 0
   private speed: number
@@ -381,7 +356,7 @@ class Enemy extends Phaser.GameObjects.Graphics {
   private targetTower: Tower | null = null
 
   constructor(scene: Phaser.Scene, path: Phaser.Curves.Path, health: number = 100, enemyType: string = 'normal') {
-    super(scene)
+    super(scene, 0, 0, `${enemyType}-enemy`)
 
     this.path = path
     this.maxHealth = health
@@ -395,34 +370,35 @@ class Enemy extends Phaser.GameObjects.Graphics {
         this.attackDamage = 25
         this.attackSpeed = 1500
         this.attackRange = 80 // 增加攻擊範圍，和近程塔一樣
-        this.fillStyle(0x8b0000) // 深紅色
         break
       case 'fast':
         this.attackDamage = 15
         this.attackSpeed = 1000
         this.attackRange = 60 // 增加攻擊範圍
         this.speed = 0.00008 // 更快的移動速度
-        this.fillStyle(0xff4500) // 橙紅色
         break
       case 'boss':
         this.attackDamage = 50
         this.attackSpeed = 3000
-        this.attackRange = 100 // 增加攻擊範圍
-        this.fillStyle(0x4b0082) // 深紫色
+        this.attackRange = 150 // 和遠程塔一樣的射程
         break
       default: // normal
         this.attackDamage = 10
         this.attackSpeed = 2000
         this.attackRange = 70 // 增加攻擊範圍
-        this.fillStyle(0xff0000) // 紅色
         break
     }
 
-    // 畫怪物（根據類型不同大小）
-    const size = enemyType === 'boss' ? 25 : enemyType === 'strong' ? 20 : 15
-    this.fillCircle(0, 0, size)
-    this.lineStyle(2, 0xffffff)
-    this.strokeCircle(0, 0, size)
+    // 根據敵人類型設定大小
+    let scale = 1.0
+    if (enemyType === 'boss') {
+      scale = 1.5
+    } else if (enemyType === 'strong') {
+      scale = 1.3
+    } else if (enemyType === 'fast') {
+      scale = 0.9
+    }
+    this.setScale(scale)
 
     scene.add.existing(this)
 
@@ -527,9 +503,26 @@ class Enemy extends Phaser.GameObjects.Graphics {
   takeDamage(damage: number) {
     this.health -= damage
     if (this.health <= 0) {
-      // 怪物死亡，給予金錢獎勵
-      const reward = 20 + Math.floor(this.maxHealth / 10)
-      window.dispatchEvent(new CustomEvent('enemyKilled', { detail: reward }))
+      // 根據敵人類型給予不同金錢獎勵
+      const baseReward = 20 + Math.floor(this.maxHealth / 10)
+      let finalReward = baseReward
+
+      switch (this.enemyType) {
+        case 'strong':
+          finalReward = Math.floor(baseReward * 1.5) // 強壯敵人獎勵 1.5 倍
+          break
+        case 'fast':
+          finalReward = Math.floor(baseReward * 1.3) // 快速敵人獎勵 1.3 倍
+          break
+        case 'boss':
+          finalReward = Math.floor(baseReward * 2.5) // 首領敵人獎勵 2.5 倍
+          break
+        default: // normal
+          finalReward = baseReward // 普通敵人維持原獎勵
+          break
+      }
+
+      window.dispatchEvent(new CustomEvent('enemyKilled', { detail: finalReward }))
       if (this.healthBar) this.healthBar.destroy()
       this.destroy()
     } else {
@@ -578,15 +571,17 @@ class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' })
   }
 
-  create() {
+    create() {
+    // 加載圖片
+    this.loadImages()
+
     // 響應式建立 S 型路徑
     this.createResponsiveSPath()
 
     // 畫出路徑（可視化用，之後可以隱藏）
     this.drawPath()
 
-    // 開始生成怪物
-    this.spawnEnemies()
+    // 敵人會在圖片加載完成後開始生成
 
     // 監聽 UI 事件
     window.addEventListener('enemyKilled', ((event: CustomEvent) => {
@@ -617,6 +612,27 @@ class GameScene extends Phaser.Scene {
       const hp = event.detail
       window.dispatchEvent(new CustomEvent('playerLoseHp', { detail: hp }))
     }) as EventListener)
+  }
+
+  private loadImages() {
+    // 加載塔的 SVG 圖片
+    this.load.image('melee-tower', '/melee-tower.svg')
+    this.load.image('ranged-tower', '/ranged-tower.svg')
+    this.load.image('flying-tower', '/flying-tower.svg')
+
+    // 加載敵人的 SVG 圖片
+    this.load.image('normal-enemy', '/normal-enemy.svg')
+    this.load.image('strong-enemy', '/strong-enemy.svg')
+    this.load.image('fast-enemy', '/fast-enemy.svg')
+    this.load.image('boss-enemy', '/boss-enemy.svg')
+
+    // 等待圖片加載完成
+    this.load.once('complete', () => {
+      // 圖片加載完成後開始遊戲
+      this.spawnEnemies()
+    })
+
+    this.load.start()
   }
 
   private createResponsiveSPath() {
@@ -784,6 +800,7 @@ onMounted(() => {
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
       },
+
     })
 
     // 監聽遊戲事件更新 UI
