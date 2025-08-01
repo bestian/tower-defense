@@ -1,25 +1,47 @@
 <template>
   <div ref="gameContainer" class="phaser-container"></div>
-  <div class="ui-overlay">
-    <div class="hp">玩家血量: {{ playerHp }}</div>
-    <div class="money">金錢: ${{ money }}</div>
-    <div class="wave">波數: {{ waveNumber }}</div>
-    <div class="tower-menu">
-      <button @click="selectTower('melee')" :class="{ selected: selectedTower === 'melee' }">
-        近程塔 (${{ towerCosts.melee }})
-      </button>
-      <button @click="selectTower('ranged')" :class="{ selected: selectedTower === 'ranged' }">
-        遠程塔 (${{ towerCosts.ranged }})
-      </button>
-      <button @click="selectTower('flying')" :class="{ selected: selectedTower === 'flying' }">
-        飛行塔 (${{ towerCosts.flying }})
-      </button>
+
+  <!-- 建造塔按鈕 - 固定在底部 -->
+  <div class="tower-buttons">
+    <button @click="selectTower('melee')" :class="{ selected: selectedTower === 'melee' }">
+      近程塔 (${{ towerCosts.melee }})
+    </button>
+    <button @click="selectTower('ranged')" :class="{ selected: selectedTower === 'ranged' }">
+      遠程塔 (${{ towerCosts.ranged }})
+    </button>
+    <button @click="selectTower('flying')" :class="{ selected: selectedTower === 'flying' }">
+      飛行塔 (${{ towerCosts.flying }})
+    </button>
+  </div>
+
+  <!-- 抽屜 - 只包含遊戲資訊和控制 -->
+  <div class="ui-drawer" :class="{ expanded: isDrawerExpanded }">
+    <div class="drawer-handle" @click="toggleDrawer">
+      <span class="handle-icon">{{ isDrawerExpanded ? '◀' : '▶' }}</span>
+      <span class="handle-text">{{ isDrawerExpanded ? '收起' : '遊戲資訊' }}</span>
     </div>
-    <div class="game-controls">
-      <button @click="togglePause">{{ isPaused ? '繼續' : '暫停' }}</button>
-      <button @click="restartGame">重新開始</button>
+    <div class="drawer-content">
+      <div class="game-info">
+        <div class="info-item hp">
+          <span class="label">玩家血量:</span>
+          <span class="value">{{ playerHp }}</span>
+        </div>
+        <div class="info-item money">
+          <span class="label">金錢:</span>
+          <span class="value">${{ money }}</span>
+        </div>
+        <div class="info-item wave">
+          <span class="label">波數:</span>
+          <span class="value">{{ waveNumber }}</span>
+        </div>
+      </div>
+      <div class="game-controls">
+        <h3>遊戲控制</h3>
+        <button @click="togglePause">{{ isPaused ? '繼續' : '暫停' }}</button>
+        <button @click="restartGame">重新開始</button>
+      </div>
+      <div v-if="isGameOver" class="game-over">GAME OVER</div>
     </div>
-    <div v-if="isGameOver" class="game-over">GAME OVER</div>
   </div>
 </template>
 
@@ -37,6 +59,7 @@ const selectedTower = ref<string | null>(null)
 const playerHp = ref(100)
 const isGameOver = ref(false)
 const isPaused = ref(false)
+const isDrawerExpanded = ref(false)
 
 function restartGame() {
   isGameOver.value = false
@@ -49,6 +72,10 @@ function restartGame() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scene = game?.scene.getScene('GameScene') as any
   scene?.scene.restart()
+}
+
+function toggleDrawer() {
+  isDrawerExpanded.value = !isDrawerExpanded.value
 }
 
 function togglePause() {
@@ -844,83 +871,168 @@ onBeforeUnmount(() => {
   z-index: 0;
 }
 
-.ui-overlay {
+.tower-buttons {
   position: fixed;
-  top: 20px;
-  left: 20px;
-  z-index: 10;
-  color: white;
-  font-family: Arial, sans-serif;
-  font-size: 18px;
-}
-
-.money, .wave {
-  margin-bottom: 10px;
-  background: rgba(0, 0, 0, 0.7);
-  padding: 10px;
-  border-radius: 5px;
-}
-
-
-
-.tower-menu {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  gap: 10px;
+  z-index: 5;
 }
 
-.tower-menu button {
-  background: rgba(0, 0, 0, 0.7);
+.tower-buttons button {
+  background: rgba(0, 0, 0, 0.8);
   color: white;
   border: 2px solid #666;
-  padding: 10px 15px;
-  border-radius: 5px;
+  padding: 12px 20px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: bold;
+  transition: all 0.3s;
+  min-width: 120px;
+}
+
+.tower-buttons button:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: #999;
+  transform: translateY(-2px);
+}
+
+.tower-buttons button.selected {
+  border-color: #00ff00;
+  background: rgba(0, 255, 0, 0.3);
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+}
+
+.ui-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  z-index: 10;
+  transition: transform 0.3s ease;
+  transform: translateX(100%);
+}
+
+.ui-drawer.expanded {
+  transform: translateX(0);
+}
+
+.drawer-handle {
+  position: absolute;
+  left: -50px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 15px 10px;
+  border-radius: 10px 0 0 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
   transition: all 0.3s;
 }
 
-.tower-menu button:hover {
+.drawer-handle:hover {
   background: rgba(0, 0, 0, 0.9);
-  border-color: #999;
 }
 
-.tower-menu button.selected {
-  border-color: #00ff00;
-  background: rgba(0, 255, 0, 0.2);
-}
-
-.hp {
-  margin-bottom: 10px;
-  background: rgba(255, 0, 0, 0.7);
-  padding: 10px;
-  border-radius: 5px;
+.handle-icon {
+  font-size: 20px;
   font-weight: bold;
 }
+
+.handle-text {
+  font-size: 12px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.drawer-content {
+  width: 300px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 20px;
+  overflow-y: auto;
+  font-family: Arial, sans-serif;
+}
+
+.game-info {
+  margin-bottom: 20px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.info-item.hp {
+  background: rgba(255, 0, 0, 0.3);
+}
+
+.info-item.money {
+  background: rgba(255, 215, 0, 0.3);
+}
+
+.info-item.wave {
+  background: rgba(0, 255, 0, 0.3);
+}
+
+.label {
+  font-weight: bold;
+}
+
+.value {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+
+
+.game-controls {
+  margin-bottom: 20px;
+}
+
+.game-controls h3 {
+  margin-bottom: 10px;
+  color: #00ff00;
+  font-size: 16px;
+}
+
+.game-controls button {
+  width: 100%;
+  background: #222;
+  color: #fff;
+  border: 2px solid #666;
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 8px;
+}
+
+.game-controls button:hover {
+  background: #444;
+  border-color: #00ffcc;
+}
+
 .game-over {
   margin-top: 30px;
   font-size: 2.5rem;
   color: #ff3333;
   font-weight: bold;
   text-shadow: 2px 2px 8px #000;
-}
-.game-controls {
-  margin-top: 15px;
-  display: flex;
-  gap: 10px;
-}
-.game-controls button {
-  background: #222;
-  color: #fff;
-  border: 2px solid #666;
-  padding: 8px 18px;
-  border-radius: 5px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.game-controls button:hover {
-  background: #444;
-  border-color: #00ffcc;
+  text-align: center;
 }
 </style>
