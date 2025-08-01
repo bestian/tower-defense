@@ -78,6 +78,11 @@ class Tower extends Phaser.GameObjects.Graphics {
   protected towerType: string
   private flyingAttackTimer: number = 0; // 新增飛行塔攻擊計時器
   private rangeCircle: Phaser.GameObjects.Graphics | null = null
+  // 新增塔的血量系統
+  private health: number = 100
+  private maxHealth: number = 100
+  private healthBar: Phaser.GameObjects.Graphics | null = null
+  private isDestroyed: boolean = false
 
   constructor(scene: Phaser.Scene, x: number, y: number, towerType: string) {
     super(scene)
@@ -91,18 +96,24 @@ class Tower extends Phaser.GameObjects.Graphics {
         this.range = 80
         this.damage = 60
         this.attackSpeed = 1000 // 1秒攻擊一次
+        this.maxHealth = 120
+        this.health = 120
         this.drawMeleeTower()
         break
       case 'ranged':
         this.range = 150
         this.damage = 20
         this.attackSpeed = 800 // 0.8秒攻擊一次
+        this.maxHealth = 80
+        this.health = 80
         this.drawRangedTower()
         break
       case 'flying':
         this.range = 100
         this.damage = 5
         this.attackSpeed = 1200 // 1.2秒攻擊一次
+        this.maxHealth = 150
+        this.health = 150
         this.drawFlyingTower()
         break
     }
@@ -114,6 +125,10 @@ class Tower extends Phaser.GameObjects.Graphics {
       this.rangeCircle = scene.add.graphics()
       this.drawRangeCircle()
     }
+
+    // 初始化血條
+    this.healthBar = scene.add.graphics()
+    this.updateHealthBar()
   }
 
   private drawMeleeTower() {
@@ -149,7 +164,73 @@ class Tower extends Phaser.GameObjects.Graphics {
     this.rangeCircle.strokeCircle(this.x, this.y, this.range)
   }
 
+  // 新增：塔受到傷害的方法
+  takeDamage(damage: number) {
+    if (this.isDestroyed) return
+
+    this.health -= damage
+    this.updateHealthBar()
+
+    // 顯示受傷效果
+    this.showDamageEffect(damage)
+
+    if (this.health <= 0) {
+      this.destroy()
+      this.isDestroyed = true
+    }
+  }
+
+  private showDamageEffect(damage: number) {
+    // 檢查場景是否存在
+    if (!this.scene || !this.active) return
+
+    // 顯示傷害數字
+    const damageText = this.scene.add.text(this.x, this.y - 30, `-${damage}`, {
+      fontSize: '16px',
+      color: '#ff0000',
+      fontStyle: 'bold'
+    })
+
+    // 傷害數字動畫
+    this.scene.tweens.add({
+      targets: damageText,
+      y: damageText.y - 30,
+      alpha: 0,
+      duration: 1000,
+      onComplete: () => {
+        if (damageText && damageText.active) {
+          damageText.destroy()
+        }
+      }
+    })
+  }
+
+  private updateHealthBar() {
+    if (!this.healthBar || this.isDestroyed) return
+
+    this.healthBar.clear()
+    const barWidth = 40
+    const barHeight = 6
+    const yOffset = 35
+
+    // 血條底色
+    this.healthBar.fillStyle(0x333333)
+    this.healthBar.fillRect(this.x - barWidth/2, this.y - yOffset, barWidth, barHeight)
+
+    // 血量比例
+    const percent = Math.max(0, this.health / this.maxHealth)
+    const healthColor = percent > 0.5 ? 0x00ff00 : percent > 0.25 ? 0xffff00 : 0xff0000
+    this.healthBar.fillStyle(healthColor)
+    this.healthBar.fillRect(this.x - barWidth/2, this.y - yOffset, barWidth * percent, barHeight)
+
+    // 血條邊框
+    this.healthBar.lineStyle(1, 0xffffff)
+    this.healthBar.strokeRect(this.x - barWidth/2, this.y - yOffset, barWidth, barHeight)
+  }
+
   update(time: number, enemies: Enemy[]) {
+    if (this.isDestroyed) return
+
     this.enemies = enemies
     // 射程圈跟隨塔移動
     if (this.rangeCircle) {
@@ -275,6 +356,10 @@ class Tower extends Phaser.GameObjects.Graphics {
       this.rangeCircle.destroy()
       this.rangeCircle = null
     }
+    if (this.healthBar) {
+      this.healthBar.destroy()
+      this.healthBar = null
+    }
     super.destroy(fromScene)
   }
 }
@@ -287,20 +372,57 @@ class Enemy extends Phaser.GameObjects.Graphics {
   private health: number
   private maxHealth: number
   private healthBar: Phaser.GameObjects.Graphics | null = null
+  // 新增敵人攻擊系統
+  private attackRange: number = 30
+  private attackDamage: number = 10
+  private attackSpeed: number = 2000 // 2秒攻擊一次
+  private lastAttackTime: number = 0
+  private enemyType: string
+  private targetTower: Tower | null = null
 
-  constructor(scene: Phaser.Scene, path: Phaser.Curves.Path, health: number = 100) {
+  constructor(scene: Phaser.Scene, path: Phaser.Curves.Path, health: number = 100, enemyType: string = 'normal') {
     super(scene)
 
     this.path = path
     this.maxHealth = health
     this.health = health
     this.speed = 0.00005 // 調慢敵人速度
+    this.enemyType = enemyType
 
-    // 畫怪物（紅色圓形）
-    this.fillStyle(0xff0000)
-    this.fillCircle(0, 0, 15)
+    // 根據敵人類型設定屬性
+    switch (enemyType) {
+      case 'strong':
+        this.attackDamage = 25
+        this.attackSpeed = 1500
+        this.attackRange = 80 // 增加攻擊範圍，和近程塔一樣
+        this.fillStyle(0x8b0000) // 深紅色
+        break
+      case 'fast':
+        this.attackDamage = 15
+        this.attackSpeed = 1000
+        this.attackRange = 60 // 增加攻擊範圍
+        this.speed = 0.00008 // 更快的移動速度
+        this.fillStyle(0xff4500) // 橙紅色
+        break
+      case 'boss':
+        this.attackDamage = 50
+        this.attackSpeed = 3000
+        this.attackRange = 100 // 增加攻擊範圍
+        this.fillStyle(0x4b0082) // 深紫色
+        break
+      default: // normal
+        this.attackDamage = 10
+        this.attackSpeed = 2000
+        this.attackRange = 70 // 增加攻擊範圍
+        this.fillStyle(0xff0000) // 紅色
+        break
+    }
+
+    // 畫怪物（根據類型不同大小）
+    const size = enemyType === 'boss' ? 25 : enemyType === 'strong' ? 20 : 15
+    this.fillCircle(0, 0, size)
     this.lineStyle(2, 0xffffff)
-    this.strokeCircle(0, 0, 15)
+    this.strokeCircle(0, 0, size)
 
     scene.add.existing(this)
 
@@ -313,23 +435,93 @@ class Enemy extends Phaser.GameObjects.Graphics {
     this.updateHealthBar()
   }
 
-  update(time: number, delta: number) {
-    // 更新路徑進度
-    this.pathProgress += this.speed * delta
+  update(time: number, delta: number, towers: Tower[]) {
+    // 檢查是否有塔在攻擊範圍內
+    this.checkForTowers(towers)
 
-    // 當怪物到達路徑終點時
-    if (this.pathProgress >= 1) {
-      // 到終點時扣玩家血量
-      window.dispatchEvent(new CustomEvent('enemyReachedEnd', { detail: this.health }))
-      this.destroy()
-      if (this.healthBar) this.healthBar.destroy()
+    // 如果沒有目標塔，繼續沿路徑移動
+    if (!this.targetTower) {
+      // 更新路徑進度
+      this.pathProgress += this.speed * delta
+
+      // 當怪物到達路徑終點時
+      if (this.pathProgress >= 1) {
+        // 到終點時扣玩家血量
+        window.dispatchEvent(new CustomEvent('enemyReachedEnd', { detail: this.health }))
+        this.destroy()
+        if (this.healthBar) this.healthBar.destroy()
+        return
+      }
+
+      // 根據進度計算位置
+      const point = this.path.getPoint(this.pathProgress)
+      this.setPosition(point.x, point.y)
+      this.updateHealthBar()
+    } else {
+      // 有目標塔時，攻擊塔
+      this.attackTower(time)
+    }
+  }
+
+  private checkForTowers(towers: Tower[]) {
+    if (!this.active) return
+
+    if (this.targetTower && !this.targetTower.active) {
+      this.targetTower = null
+    }
+
+    if (!this.targetTower) {
+      for (const tower of towers) {
+        if (tower.active) {
+          const distance = Phaser.Math.Distance.Between(this.x, this.y, tower.x, tower.y)
+          if (distance <= this.attackRange) {
+            this.targetTower = tower
+            break
+          }
+        }
+      }
+    }
+  }
+
+  private attackTower(time: number) {
+    if (!this.targetTower || !this.targetTower.active || !this.active) {
+      this.targetTower = null
       return
     }
 
-    // 根據進度計算位置
-    const point = this.path.getPoint(this.pathProgress)
-    this.setPosition(point.x, point.y)
-    this.updateHealthBar()
+    const distance = Phaser.Math.Distance.Between(this.x, this.y, this.targetTower.x, this.targetTower.y)
+
+    if (distance <= this.attackRange) {
+      // 在攻擊範圍內
+      if (time - this.lastAttackTime > this.attackSpeed) {
+        // 攻擊塔
+        this.targetTower.takeDamage(this.attackDamage)
+        this.lastAttackTime = time
+
+        // 顯示攻擊效果
+        this.showAttackEffect(this.targetTower)
+      }
+    } else {
+      // 超出攻擊範圍，重新尋找目標
+      this.targetTower = null
+    }
+  }
+
+  private showAttackEffect(tower: Tower) {
+    // 檢查場景是否存在
+    if (!this.scene || !this.active) return
+
+    // 顯示攻擊線條效果
+    const graphics = this.scene.add.graphics()
+    graphics.lineStyle(3, 0xff0000, 1)
+    graphics.lineBetween(this.x, this.y, tower.x, tower.y)
+
+    // 0.2秒後移除效果
+    this.scene.time.delayedCall(200, () => {
+      if (graphics && graphics.active) {
+        graphics.destroy()
+      }
+    })
   }
 
   takeDamage(damage: number) {
@@ -474,7 +666,22 @@ class GameScene extends Phaser.Scene {
       const healthIncrease = (this.waveNumber - 1) * 20
       const enemyHealth = baseHealth + healthIncrease
 
-      const enemy = new Enemy(this, this.path, enemyHealth)
+      // 根據波數決定敵人類型
+      let enemyType = 'normal'
+      const random = Math.random()
+
+      // 從第一波開始就有機會出現所有類型
+      if (this.waveNumber >= 1 && random < 0.05) {
+        enemyType = 'boss' // 5% 機率出現首領
+      } else if (this.waveNumber >= 1 && random < 0.15) {
+        enemyType = 'strong' // 10% 機率出現強壯敵人
+      } else if (this.waveNumber >= 1 && random < 0.30) {
+        enemyType = 'fast' // 15% 機率出現快速敵人
+      } else {
+        enemyType = 'normal' // 70% 機率出現普通敵人
+      }
+
+      const enemy = new Enemy(this, this.path, enemyHealth, enemyType)
       this.enemies.push(enemy)
       this.enemiesSpawned++
 
@@ -519,7 +726,7 @@ class GameScene extends Phaser.Scene {
     if (this.gameOver) return
     // 更新所有怪物
     this.enemies.forEach((enemy, index) => {
-      enemy.update(time, delta)
+      enemy.update(time, delta, this.towers)
 
       // 移除已銷毀的怪物
       if (!enemy.active) {
@@ -636,6 +843,8 @@ onBeforeUnmount(() => {
   padding: 10px;
   border-radius: 5px;
 }
+
+
 
 .tower-menu {
   display: flex;
