@@ -614,17 +614,17 @@ class GameScene extends Phaser.Scene {
     }) as EventListener)
   }
 
-  private loadImages() {
-    // 加載塔的 SVG 圖片
-    this.load.image('melee-tower', '/melee-tower.svg')
-    this.load.image('ranged-tower', '/ranged-tower.svg')
-    this.load.image('flying-tower', '/flying-tower.svg')
+    private loadImages() {
+    // 加載塔的 SVG 圖片（使用絕對路徑）
+    this.load.image('melee-tower', 'https://bestian.github.io/tower-defense/melee-tower.svg')
+    this.load.image('ranged-tower', 'https://bestian.github.io/tower-defense/ranged-tower.svg')
+    this.load.image('flying-tower', 'https://bestian.github.io/tower-defense/flying-tower.svg')
 
-    // 加載敵人的 SVG 圖片
-    this.load.image('normal-enemy', '/normal-enemy.svg')
-    this.load.image('strong-enemy', '/strong-enemy.svg')
-    this.load.image('fast-enemy', '/fast-enemy.svg')
-    this.load.image('boss-enemy', '/boss-enemy.svg')
+    // 加載敵人的 SVG 圖片（使用絕對路徑）
+    this.load.image('normal-enemy', 'https://bestian.github.io/tower-defense/normal-enemy.svg')
+    this.load.image('strong-enemy', 'https://bestian.github.io/tower-defense/strong-enemy.svg')
+    this.load.image('fast-enemy', 'https://bestian.github.io/tower-defense/fast-enemy.svg')
+    this.load.image('boss-enemy', 'https://bestian.github.io/tower-defense/boss-enemy.svg')
 
     // 等待圖片加載完成
     this.load.once('complete', () => {
